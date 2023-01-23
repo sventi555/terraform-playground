@@ -1,3 +1,5 @@
 {
-  "app": "yarn start"
+  "language": "typescript",
+  "app": "yarn start",
+  "projectId": "ee3bbf93-b22b-4c28-b270-3ac4f728bbf1"
 }
