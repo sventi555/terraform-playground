@@ -1,5 +1,5 @@
 {
   "language": "typescript",
-  "app": "yarn start",
+  "app": "yarn run ts-node cdk.ts",
   "projectId": "ee3bbf93-b22b-4c28-b270-3ac4f728bbf1"
 }

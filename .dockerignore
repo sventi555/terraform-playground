@@ -1,0 +1,12 @@
+cdktf.out/
+dist/
+node_modules/
+.dockerignore
+.env
+.env.example
+.gitignore
+cdk.ts
+cdktf.json
+creds.json
+Dockerfile
+tsconfig.tsbuildinfo
