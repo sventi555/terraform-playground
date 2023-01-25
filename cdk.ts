@@ -6,12 +6,19 @@ import { DockerProvider } from "@cdktf/provider-docker/lib/provider";
 import { Image } from "@cdktf/provider-docker/lib/image";
 import { RegistryImage } from "@cdktf/provider-docker/lib/registry-image";
 import { ArtifactRegistryRepository } from "@cdktf/provider-google/lib/artifact-registry-repository";
+import { CloudRunService } from "@cdktf/provider-google/lib/cloud-run-service";
+import { CloudRunServiceIamBinding } from "@cdktf/provider-google/lib/cloud-run-service-iam-binding";
+import { CloudRunServiceIamPolicy } from "@cdktf/provider-google/lib/cloud-run-service-iam-policy";
 import { GoogleProvider } from "@cdktf/provider-google/lib/provider";
 import { readFileSync } from "fs";
+
+import { DataGoogleIamPolicy } from "@cdktf/provider-google/lib/data-google-iam-policy";
 
 class MyStack extends TerraformStack {
   constructor(scope: Construct, name: string) {
     super(scope, name);
+
+    const region = "northamerica-northeast2";
 
     const googleProvider = new GoogleProvider(this, "google", {
       credentials: readFileSync(
@@ -19,7 +26,7 @@ class MyStack extends TerraformStack {
         "utf-8"
       ),
       project: "terraform-playground-375515",
-      region: "northamerica-northeast2",
+      region,
       zone: "northamerica-northeast2-a",
     });
 
@@ -27,7 +34,7 @@ class MyStack extends TerraformStack {
       this,
       "artifactRegistry",
       {
-        location: googleProvider.region,
+        location: region,
         format: "DOCKER",
         repositoryId: "terraform-playground",
       }
@@ -36,7 +43,7 @@ class MyStack extends TerraformStack {
     new DockerProvider(this, "docker", {
       registryAuth: [
         {
-          address: `${artifactRegistry.location}-docker.pkg.dev`,
+          address: `${region}-docker.pkg.dev`,
           username: "_json_key_base64",
           password: readFileSync(
             process.env.GCP_CREDENTIALS_PATH || "",
@@ -47,14 +54,42 @@ class MyStack extends TerraformStack {
     });
 
     const image = new Image(this, "dockerImage", {
-      name: `${artifactRegistry.location}-docker.pkg.dev/${artifactRegistry.project}/${artifactRegistry.repositoryId}/tf-playground:latest`,
+      name: `${region}-docker.pkg.dev/${artifactRegistry.project}/${artifactRegistry.repositoryId}/tf-playground:1.0.0`,
       buildAttribute: {
         context: __dirname,
+        platform: "linux/amd64",
       },
     });
 
     new RegistryImage(this, "registryImage", {
       name: image.name,
+    });
+
+    const runService = new CloudRunService(this, "runService", {
+      location: region,
+      name: "tf-playground",
+
+      template: {
+        spec: {
+          containers: [{ image: image.name }],
+        },
+      },
+    });
+
+    const noAuthBinding = new DataGoogleIamPolicy(this, "noAuth", {
+      binding: [
+        {
+          role: "roles/run.invoker",
+          members: ["allUsers"],
+        },
+      ],
+    });
+
+    new CloudRunServiceIamPolicy(this, "runServiceIamPolicy", {
+      location: region,
+      project: googleProvider.project,
+      service: runService.name,
+      policyData: noAuthBinding.policyData,
     });
   }
 }
